@@ -1,11 +1,12 @@
 import argparse
 
 all_y = ("O", "B-positive", "B-neutral", "B-negative", "I-positive", "I-neutral", "I-negative")
+all_y_ss = all_y + ("START", "STOP")
 unk_threshold = 3 # k. If word appears less than this frequency, then word is treated as unknown.
 
 def train(training_file):
     counts_e = {}
-    counts_y = {y:0 for y in all_y}
+    counts_y = {y:0 for y in all_y_ss}
     for line in training_file:
         if not line:
             continue
