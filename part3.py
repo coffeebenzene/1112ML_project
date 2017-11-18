@@ -1,4 +1,6 @@
 import argparse
+import os.path
+from fractions import Fraction
 
 all_y = ("O", "B-positive", "B-neutral", "B-negative", "I-positive", "I-neutral", "I-negative")
 all_y_ss = all_y + ("START", "STOP")
@@ -38,8 +40,19 @@ def train(training_file):
 
 
 def main(args):
-    with open(args.train, encoding="UTF-8") as training_file:
-        e, t = train(training_file)
+    train_path = os.path.join(args.folder, args.train)
+    with open(train_path, encoding="utf-8") as training_file:
+        e = train(training_file)
+    
+    infile_path = os.path.join(args.folder, args.infile)
+    with open(infile_path, encoding="utf-8") as in_file:
+        predictions = predict(e, in_file)
+    
+    outfile_path = os.path.join(args.folder, args.outfile)
+    with open(outfile_path, "w", encoding="utf-8") as out_file:
+        str_predictions = [(" ".join(pair) if pair is not None else "") for pair in predictions]
+        str_predictions = "\n".join(str_predictions)
+        out_file.write(str_predictions)
 
 
 
@@ -48,6 +61,7 @@ if __name__ == "__main__":
     parser.add_argument('-t', '--train', type=str, default="train", help='Training dataset file')
     parser.add_argument('-i', '--infile', type=str, default="dev.in", help='Input (to be decoded) dataset file')
     parser.add_argument('-o', '--outfile', type=str, default="dev.prediction", help='Input (to be decoded) dataset file')
+    parser.add_argument('-f', '--folder', type=str, default=".", help='Folder containing files (prepended to files).')
     args = parser.parse_args()
     
     main(args)
