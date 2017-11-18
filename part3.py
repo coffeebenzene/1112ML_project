@@ -24,34 +24,52 @@ def sentence_gen(f):
         yield sentence
 
 def train(training_file):
+    # counts_e[x][y] is emission of (tag y)->(word x)
     counts_e = {}
-    counts_t = {}
+    # counts_t[next][prev] is transition from (prev)->(next)
+    counts_t = {n : {p:0 for p in all_y+("START",)}
+                for n in all_y+("STOP",)}
+    # raw count of tags
     counts_y = {y:0 for y in all_y_ss}
-    in_sentence = False
-    prev_tag = None
-    for line in training_file:
-        line = line.strip()
-        if not line: # next line is blank
-            # if in_sentence: # previous line is part of a sentence
-                #calc stop
-            in_sentence = False
-            continue
-
-        x, y = line.rsplit(" ", 1) # word, tag
-        if x not in counts_e:
-            counts_e[x] = {y:0 for y in all_y}
-        counts_e[x][y] += 1
-        counts_y[y] += 1
-        prev_tag = y
-
+    
+    for sentence in sentence_gen(training_file):
+        counts_y["START"] += 1
+        prev_y = "START"
+        for pair in sentence:
+            x, y = pair.rsplit(" ", 1) # word, tag
+            if x not in counts_e:
+                counts_e[x] = {y:0 for y in all_y}
+            counts_e[x][y] += 1
+            counts_t[y][prev_y] += 1
+            counts_y[y] += 1
+            prev_y = y
+        counts_y["STOP"] += 1
+        counts_t["STOP"][prev_y] += 1
     
     to_unk = []
     counts_unk = {y:0 for y in all_y}
     for x, y_to_x in counts_e.items():
         if sum(y_to_x.values()) < unk_threshold:
             to_unk.append(x)
-        #addup to counts_unk
-    return None, None
+            for y, count in y_to_x.items(): # Add counts to #UNK#
+                counts_unk[y] += count
+    for x in to_unk:
+        del counts_e[x]
+    counts_e["#UNK#"] = counts_unk
+    
+    e = {}
+    for x, y_to_x in counts_e.items():
+        e[x] = {}
+        for y, count in y_to_x.items():
+            e[x][y] = Fraction(count, counts_y[y])
+    
+    t = {}
+    for y_next, prev_to_next in counts_t.items():
+        t[y_next] = {}
+        for y_prev, count in prev_to_next.items():
+            t[y_next][y_prev] = Fraction(count, counts_y[y])
+    
+    return e, t
     # should return emission parameters and transition parameters.
 
 
@@ -59,8 +77,13 @@ def train(training_file):
 def main(args):
     train_path = os.path.join(args.folder, args.train)
     with open(train_path, encoding="utf-8") as training_file:
-        e = train(training_file)
+        e, t = train(training_file)
     
+    # DEBUG
+    import pprint
+    pprint.pprint(e)
+    pprint.pprint(t)
+    """
     infile_path = os.path.join(args.folder, args.infile)
     with open(infile_path, encoding="utf-8") as in_file:
         predictions = predict(e, in_file)
@@ -70,7 +93,7 @@ def main(args):
         str_predictions = [(" ".join(pair) if pair is not None else "") for pair in predictions]
         str_predictions = "\n".join(str_predictions)
         out_file.write(str_predictions)
-
+    """
 
 
 if __name__ == "__main__":
