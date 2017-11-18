@@ -6,6 +6,23 @@ all_y = ("O", "B-positive", "B-neutral", "B-negative", "I-positive", "I-neutral"
 all_y_ss = all_y + ("START", "STOP")
 unk_threshold = 3 # k. If word appears less than this frequency, then word is treated as unknown.
 
+def sentence_gen(f):
+    sentence = []
+    in_sentence = False
+    for line in f:
+        line = line.strip()
+        if line:
+            sentence.append(line)
+            in_sentence=True
+        elif in_sentence and not line:
+            yield sentence
+            sentence = []
+            in_sentence=False
+        else:
+            in_sentence=False
+    if sentence:
+        yield sentence
+
 def train(training_file):
     counts_e = {}
     counts_t = {}
