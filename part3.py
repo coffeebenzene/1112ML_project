@@ -67,11 +67,19 @@ def train(training_file):
     for y_next, prev_to_next in counts_t.items():
         t[y_next] = {}
         for y_prev, count in prev_to_next.items():
-            t[y_next][y_prev] = Fraction(count, counts_y[y])
+            t[y_next][y_prev] = Fraction(count, counts_y[y_prev])
     
     return e, t
     # should return emission parameters and transition parameters.
 
+def predict(e, t, in_file):
+    predictions = []
+    
+    for sentence in sentence_gen(in_file):
+        # insert viterbi algorithm here
+        pass
+    
+    return predictions
 
 
 def main(args):
@@ -83,11 +91,12 @@ def main(args):
     import pprint
     pprint.pprint(e)
     pprint.pprint(t)
-    """
+    
     infile_path = os.path.join(args.folder, args.infile)
     with open(infile_path, encoding="utf-8") as in_file:
-        predictions = predict(e, in_file)
+        predictions = predict(e, t, in_file)
     
+    """
     outfile_path = os.path.join(args.folder, args.outfile)
     with open(outfile_path, "w", encoding="utf-8") as out_file:
         str_predictions = [(" ".join(pair) if pair is not None else "") for pair in predictions]
