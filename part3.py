@@ -2,7 +2,7 @@ import argparse
 import os.path
 from fractions import Fraction
 
-debug = True
+debug = False
 if debug:
     import pprint
 
@@ -148,7 +148,7 @@ def main(args):
             if first:
                 first = False
             else:
-                out_file.write("\n")
+                out_file.write("\n\n")
             str_predictions = [" ".join(pair) for pair in zip(*sentence_pair)]
             str_predictions = "\n".join(str_predictions)
             out_file.write(str_predictions)
@@ -161,6 +161,9 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--infile', type=str, default="dev.in", help='Input (to be decoded) dataset file')
     parser.add_argument('-o', '--outfile', type=str, default="dev.p3.out", help='Output (the predictions) file')
     parser.add_argument('-f', '--folder', type=str, default=".", help='Folder containing files (prepended to files).')
+    parser.add_argument('-d', '--debug', type=bool, default=False, help='Debug mode')
     args = parser.parse_args()
+    
+    debug = args.debug
     
     main(args)
