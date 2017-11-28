@@ -1,6 +1,7 @@
 import argparse
 import os.path
 from fractions import Fraction
+import time
 
 all_y = ("O", "B-positive", "B-neutral", "B-negative", "I-positive", "I-neutral", "I-negative")
 all_y_ss = all_y + ("START", "STOP")
@@ -190,4 +191,6 @@ if __name__ == "__main__":
     if debug:
         import pprint
     
+    start_time = time.time()
     main(args)
+    print("{}s".format(time.time()-start_time))
