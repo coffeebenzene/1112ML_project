@@ -7,8 +7,11 @@ all_y_ss = all_y + ("START", "STOP")
 unk_threshold = 3 # k. If word appears less than this frequency, then word is treated as unknown.
 
 def train(training_file):
+    # counts_e[x][y] is emission of (tag y)->(word x)
     counts_e = {}
+    # raw count of tags
     counts_y = {y:0 for y in all_y_ss}
+    # count emissions by line (word)
     for line in training_file:
         line = line.strip()
         if not line:
@@ -19,6 +22,7 @@ def train(training_file):
         counts_e[x][y] += 1
         counts_y[y] += 1
     
+    # Accumulate low frequency words into #UNK#.
     to_unk = []
     counts_unk = {y:0 for y in all_y}
     for x, y_to_x in counts_e.items():
@@ -30,6 +34,7 @@ def train(training_file):
         del counts_e[x]
     counts_e["#UNK#"] = counts_unk
     
+    # Emission probabilities
     e = {}
     for x, y_to_x in counts_e.items():
         e[x] = {}
@@ -39,11 +44,12 @@ def train(training_file):
     return e
 
 def predict(e, in_file):
+    """Generate list of tuples: [(word, prediction), ...]"""
     predictions = []
     for line in in_file:
         x = line.strip()
         if not x:
-            predictions.append(None)
+            predictions.append(None) # Account for empty lines between sentences
             continue
         if x in e:
             max_y_prob = max(e[x].items(), key=lambda y_prob:y_prob[1])
@@ -74,7 +80,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', '--train', type=str, default="train", help='Training dataset file')
     parser.add_argument('-i', '--infile', type=str, default="dev.in", help='Input (to be decoded) dataset file')
-    parser.add_argument('-o', '--outfile', type=str, default="dev.prediction", help='Input (to be decoded) dataset file')
+    parser.add_argument('-o', '--outfile', type=str, default="dev.p2.out", help='Output (the predictions) file')
     parser.add_argument('-f', '--folder', type=str, default=".", help='Folder containing files (prepended to files).')
     args = parser.parse_args()
     

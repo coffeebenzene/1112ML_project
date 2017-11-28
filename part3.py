@@ -2,11 +2,18 @@ import argparse
 import os.path
 from fractions import Fraction
 
+debug = True
+if debug:
+    import pprint
+
 all_y = ("O", "B-positive", "B-neutral", "B-negative", "I-positive", "I-neutral", "I-negative")
 all_y_ss = all_y + ("START", "STOP")
 unk_threshold = 3 # k. If word appears less than this frequency, then word is treated as unknown.
 
 def sentence_gen(f):
+    """Generates a list of strings for a sentence.
+       Each string is either a "word", or a "word tag" pair (each line of the data file).
+    """
     sentence = []
     in_sentence = False
     for line in f:
@@ -46,6 +53,7 @@ def train(training_file):
         counts_y["STOP"] += 1
         counts_t["STOP"][prev_y] += 1
     
+    # Accumulate low frequency words into #UNK#.
     to_unk = []
     counts_unk = {y:0 for y in all_y}
     for x, y_to_x in counts_e.items():
@@ -57,12 +65,13 @@ def train(training_file):
         del counts_e[x]
     counts_e["#UNK#"] = counts_unk
     
+    # Emission probabilities
     e = {}
     for x, y_to_x in counts_e.items():
         e[x] = {}
         for y, count in y_to_x.items():
             e[x][y] = Fraction(count, counts_y[y])
-    
+    # Transition probabilities
     t = {}
     for y_next, prev_to_next in counts_t.items():
         t[y_next] = {}
@@ -73,6 +82,7 @@ def train(training_file):
     # should return emission parameters and transition parameters.
 
 def predict(e, t, in_file):
+    """Generate list of tuples: [(sentence, prediction), ...]"""
     predictions = []
     
     for sentence in sentence_gen(in_file):
@@ -87,10 +97,9 @@ def main(args):
     with open(train_path, encoding="utf-8") as training_file:
         e, t = train(training_file)
     
-    # DEBUG
-    import pprint
-    pprint.pprint(e)
-    pprint.pprint(t)
+    if debug:
+        pprint.pprint(e)
+        pprint.pprint(t)
     
     infile_path = os.path.join(args.folder, args.infile)
     with open(infile_path, encoding="utf-8") as in_file:
@@ -109,7 +118,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', '--train', type=str, default="train", help='Training dataset file')
     parser.add_argument('-i', '--infile', type=str, default="dev.in", help='Input (to be decoded) dataset file')
-    parser.add_argument('-o', '--outfile', type=str, default="dev.prediction", help='Input (to be decoded) dataset file')
+    parser.add_argument('-o', '--outfile', type=str, default="dev.p3.out", help='Output (the predictions) file')
     parser.add_argument('-f', '--folder', type=str, default=".", help='Folder containing files (prepended to files).')
     args = parser.parse_args()
     
