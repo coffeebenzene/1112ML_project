@@ -122,8 +122,8 @@ def predict(e, t, in_file):
             beta_table[i] = d
         
         if debug: # validate the alpha/beta values
-            #pprint.pprint(alpha_table)
-            #pprint.pprint(beta_table)
+            pprint.pprint(alpha_table)
+            pprint.pprint(beta_table)
             Z_values = []
             for alpha_d, beta_d in zip(alpha_table, beta_table):
                 combine_d = {}
@@ -133,44 +133,19 @@ def predict(e, t, in_file):
                 Z_values.append(z)
             if any(z != Z_values[0] for z in Z_values): # check if any not the same
                 print("WARNING: {}".format(sentence))
-                print("Z-values (marginal probability of sentence) not all equal:\n{}".format(Z_values))
+                print("Z-values (marginal probability of words in sentence) not all equal:\n{}".format(Z_values))
         
         # do prediction
         predicted_y = []
-        for i, word in enumerate(sentence):
-            pass
-        
-        
-        """
-        for i, word in enumerate(sentence[1:], 1):
-            d = {}
-            word_emissions = e.get(word)
-            if word_emissions is None:
-                word_emissions = e["#UNK#"]
-            for v in all_y:
-                d[v] = max( alpha_table[i-1][u] * t[v][u] * word_emissions[v] for u in all_y )
-            viterbi_table.append(d)
-        
-        if debug:
-            pprint.pprint(viterbi_table)
-        
-        predicted_y = [] # reversed order first
-        # backtracking y prediction
-        next_y = "STOP"
-        for i in range(len(sentence)-1, -1, -1):
-            # Using tuples with tag in 2nd index.
-            # break even by alphabetical order of tags ("O" is prioritized, then "I", then "B")
-            prob, v = max( (viterbi_table[i][v] * t[next_y][v], v) for v in all_y )
-            next_y = v
-            predicted_y.append(v)
-        predicted_y.reverse()
+        for alpha_d, beta_d in zip(alpha_table, beta_table):
+            marginal, opti_y = max( (alpha_d[u]*beta_d[u], u) for u in all_y )
+            predicted_y.append(opti_y)
         
         if debug:
             pprint.pprint(sentence)
             pprint.pprint(predicted_y)
         
         predictions.append((sentence, predicted_y))
-        """
     
     return predictions
 
