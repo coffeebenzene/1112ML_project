@@ -86,8 +86,44 @@ def predict(e, t, in_file):
     predictions = []
     
     for sentence in sentence_gen(in_file):
-        # insert viterbi algorithm here
-        pass
+        viterbi_table = [] # by index, each element is dict of {tags : probabilities}
+        # Initial step.
+        d = {}
+        for v in all_y:
+            word_emissions = e.get(sentence[0])
+            if word_emissions is None:
+                word_emissions = e["#UNK#"]
+            d[v] = t[v]["START"] * word_emissions[v]
+        viterbi_table.append(d)
+        # subsequent steps
+        for i, word in enumerate(sentence[1:], 1):
+            d = {}
+            for v in all_y:
+                word_emissions = e.get(word)
+                if word_emissions is None:
+                    word_emissions = e["#UNK#"]
+                d[v] = max( viterbi_table[i-1][u] * t[v][u] * word_emissions[v] for u in all_y )
+            viterbi_table.append(d)
+        
+        if debug:
+            pprint.pprint(viterbi_table)
+        
+        predicted_y = [] # reversed order first
+        # backtracking y prediction
+        next_y = "STOP"
+        for i in range(len(sentence)-1, -1, -1):
+            # Using tuples with tag in 2nd index.
+            # break even by alphabetical order of tags ("O" is prioritized, then "I", then "B")
+            prob, v = max( (viterbi_table[i][v] * t[next_y][v], v) for v in all_y )
+            next_y = v
+            predicted_y.append(v)
+        predicted_y.reverse()
+        
+        if debug:
+            pprint.pprint(sentence)
+            pprint.pprint(predicted_y)
+        
+        predictions.append((sentence, predicted_y))
     
     return predictions
 
@@ -105,13 +141,18 @@ def main(args):
     with open(infile_path, encoding="utf-8") as in_file:
         predictions = predict(e, t, in_file)
     
-    """
     outfile_path = os.path.join(args.folder, args.outfile)
     with open(outfile_path, "w", encoding="utf-8") as out_file:
-        str_predictions = [(" ".join(pair) if pair is not None else "") for pair in predictions]
-        str_predictions = "\n".join(str_predictions)
-        out_file.write(str_predictions)
-    """
+        first = True
+        for sentence_pair in predictions:
+            if first:
+                first = False
+            else:
+                out_file.write("\n")
+            str_predictions = [" ".join(pair) for pair in zip(*sentence_pair)]
+            str_predictions = "\n".join(str_predictions)
+            out_file.write(str_predictions)
+
 
 
 if __name__ == "__main__":
