@@ -89,20 +89,20 @@ def predict(e, t, in_file):
         viterbi_table = [] # by index, each element is dict of {tags : probabilities}
         # Initial step.
         d = {}
+        word_emissions = e.get(sentence[0])
+        if word_emissions is None:
+            word_emissions = e["#UNK#"]
         for v in all_y:
-            word_emissions = e.get(sentence[0])
-            if word_emissions is None:
-                word_emissions = e["#UNK#"]
             d[v] = t[v]["START"] * word_emissions[v]
         viterbi_table.append(d)
         # subsequent steps
         for i, word in enumerate(sentence[1:], 1):
             d = {}
+            word_emissions = e.get(word)
+            if word_emissions is None:
+                word_emissions = e["#UNK#"]
             for v in all_y:
-                word_emissions = e.get(word)
-                if word_emissions is None:
-                    word_emissions = e["#UNK#"]
-                d[v] = max( viterbi_table[i-1][u] * t[v][u] * word_emissions[v] for u in all_y )
+                d[v] = max( viterbi_table[i-1][u] * t[v][u] for u in all_y ) * word_emissions[v]
             viterbi_table.append(d)
         
         if debug:
