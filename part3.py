@@ -161,9 +161,11 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--infile', type=str, default="dev.in", help='Input (to be decoded) dataset file')
     parser.add_argument('-o', '--outfile', type=str, default="dev.p3.out", help='Output (the predictions) file')
     parser.add_argument('-f', '--folder', type=str, default=".", help='Folder containing files (prepended to files).')
-    parser.add_argument('-d', '--debug', type=bool, default=False, help='Debug mode')
+    parser.add_argument('-d', '--debug', action='store_true', help='Debug mode')
     args = parser.parse_args()
     
     debug = args.debug
+    if debug:
+        import pprint
     
     main(args)
