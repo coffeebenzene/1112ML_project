@@ -29,3 +29,43 @@ python part4.py -f "C:\Users\Eric\ML_project\EN" -d
 Assuming that the EN files are stored in the `C:\Users\Eric\ML_project\EN` folder, This will run the part4 script on the EN files with debug information. The output will be in `C:\Users\Eric\ML_project\EN\dev.p4.out`.
 
 Notes: The script was tested in windows. It should work under linux, but we did not check.
+
+## F-score Results
+
+<table>
+<tr>
+    <th></th>
+    <th colspan=2>EN</th>
+    <th colspan=2>FR</th>
+    <th colspan=2>SG</th>
+    <th colspan=2>CN</th>
+</tr>
+<tr>
+    <th>Part</th>
+    <th>Entity F-score</th><th>Sentiment F-score</th>
+    <th>Entity F-score</th><th>Sentiment F-score</th>
+    <th>Entity F-score</th><th>Sentiment F-score</th>
+    <th>Entity F-score</th><th>Sentiment F-score</th>
+</tr>
+<tr>
+    <td>Part&nbsp2</td>
+    <td>0.2313</td><td>0.0995</td>
+    <td>0.2653</td><td>0.0991</td>
+    <td>0.1990</td><td>0.0789</td>
+    <td>0.0995</td><td>0.0310</td>
+</tr>
+<tr>
+    <td>Part&nbsp3</td>
+    <td>0.5361</td><td>0.3299</td>
+    <td>0.5758</td><td>0.3702</td>
+    <td>0.3667</td><td>0.2318</td>
+    <td>0.2462</td><td>0.1808</td>
+</tr>
+<tr>
+    <td>Part&nbsp4</td>
+    <td>0.5387</td><td>0.3441</td>
+    <td>0.5707</td><td>0.3687</td>
+    <td>0.3639</td><td>0.2383</td>
+    <td>0.2432</td><td>0.1706</td>
+</tr>
+</table>
