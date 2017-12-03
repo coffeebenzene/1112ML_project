@@ -74,14 +74,19 @@ def preprocess_train(training_file):
 def train(training_file):
     train_data, wordcount = preprocess_train(training_file)
     
+    if debug: #DEBUG
+        print(len(train_data))
+    
     hmm_features = crf_feature.generate_hmm_features(all_y_ss, wordcount.keys())
     vfeature_func = crf_feature.make_vfeature_func(hmm_features)
     
-    regularizer = 0.5 # Larger is more regualrization
+    regularizer = 0.5 # Larger is more regularization
     
     def loss_grad(w):
         loss = 0
         grad = np.zeros(len(w))
+        if debug: # DEBUG
+            start = time.time()
         for sentence, tags in train_data:
             potential = forward_backward.potential_func(w, vfeature_func, sentence)
             alpha_table, beta_table = forward_backward.forward_backward(potential, sentence, all_y)
@@ -102,10 +107,12 @@ def train(training_file):
             loss -= np.dot(w, feature)
             grad -= feature
             # hard part of crf
-            for i in range(len(tags)):
-                for u,v in itertools.product(all_y, all_y):
-                    grad += marginals[(i, u, v)]/z*vfeature_func(u, v, i, sentence)
-        print(w) # DEBUG
+            for k in range(len(tags)):
+                for (i,u),(j,v) in itertools.product(enumerate(all_y), repeat=2):
+                    grad += marginals[k,i,j]*vfeature_func(u, v, k, sentence)
+        if debug: # DEBUG
+            print(w)
+            print(time.time()-start)
         return loss, grad
     
     result = minimize(loss_grad, np.ones(len(hmm_features)),
@@ -164,7 +171,7 @@ if __name__ == "__main__":
     debug = args.debug
     if debug:
         import pprint
-    import pprint
+    import pprint # DEBUG
     
     start_time = time.time()
     main(args)

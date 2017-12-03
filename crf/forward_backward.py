@@ -28,44 +28,32 @@ def forward_backward(potential, sentence, states):
        
        Returns 2D numpy array of [[state1_score, state2_score...], ...]
            # row = index, col = state.
-       ----------IGNORE BELOW----------
-       Returns 2 list of dicts of [{state: score, ...}, ...]
-           #Each index of the list corresponds to index in the column (index 0 is for word 0)
-           #Each dict is {state/tag: score} for that index.
-           #i.e. row = index, col = state.
-       First list is the alpha/forward scores.
-       Second list is the beta/backward scores.
-       
-       NOTE: It is possible to change the list of dicts to a numpy 2D-array. It may be faster, but this is not done. Ease of coding first.
+           # Each row is index of sentence.
+           # Each column is the score for that state.
+           # !!NOTE!! Order of columns follows order of the states argument.
     """
+    statelen = len(states)
     
     # Calculate alpha scores
-    alpha_table = []
+    alpha_table = np.ndarray((len(sentence), statelen))
     # Initial forward step.
-    d = {}
-    for u in states:
-        d[u] = potential("START", u, 0)
-    alpha_table.append(d)
+    for j, u in enumerate(states):
+        alpha_table[0,j] = potential("START", u, 0)
     # subsequent forward steps
     for i in range(1,len(sentence)):
-        d = {}
-        for u in states:
-            d[u] = sum( alpha_table[i-1][v]*potential(v, u, i) for v in states )
-        alpha_table.append(d)
+        for j, u in enumerate(states):
+            alpha_table[i,j] = np.sum( alpha_table[i-1, k]*potential(v, u, i) for k,v in enumerate(states) )
     
     # Calculate beta scores
-    beta_table = [None for word in sentence] # preinitialize length
+    beta_table = np.ndarray((len(sentence), statelen))
     # Initial backward step.
-    d = {}
-    for u in states:
-        d[u] = potential(u, "END", None)
-    beta_table[-1] = d
+    i = len(sentence)-1
+    for j, u in enumerate(states):
+        beta_table[i, j] = potential(u, "END", None)
     # subsequent backward steps
     for i in range(len(sentence)-2, -1, -1):
-        d = {}
-        for u in states:
-            d[u] = sum( beta_table[i+1][v]*potential(u, v, i+1) for v in states )
-        beta_table[i] = d
+        for j, u in enumerate(states):
+            beta_table[i,j] = np.sum( beta_table[i+1, k]*potential(u, v, i+1) for k,v in enumerate(states) )
     
     return alpha_table, beta_table
 
@@ -79,26 +67,21 @@ def calc_z_marginals(alpha_table, beta_table, potential, states):
        
        returns:
         1. Scalar value z
-        2. a dict of { (i,u,v): probability }
+        2. a 3D numpy ndarray of [index (i,u,v): probability]
     """
+    # Calculate normalization constant
     # Any index should work
     last_a = alpha_table[-1]
     last_b = beta_table[-1]
-    
-    # Calculate normalization constant
-    z = 0
-    for state in states: # note: np 2D array can just multiply element wise and sum.
-        a_score = last_a[state]
-        b_score = last_b[state]
-        z += a_score*b_score
+    z = np.sum(last_a*last_b)
     
     # Calculate marginals
-    marginals = {}
-    for i in range(len(alpha_table)-1):
-        for u,v in itertools.product(states, states):
-            marginals[(i,u,v)] = alpha_table[i][u]*potential(u,v,i+1)*beta_table[i][v]
-    i = len(alpha_table)-1
-    for u,v in itertools.product(states, states):
-        marginals[(i,u,v)] = alpha_table[i][u]*potential(u,v,None)
+    marginals = np.ndarray((len(alpha_table), len(states), len(states)))
+    for k in range(len(alpha_table)-1):
+        for (i,u),(j,v) in itertools.product(enumerate(states), repeat=2):
+            marginals[k,i,j] = alpha_table[k,i]*potential(u,v,k+1)*beta_table[k, j]/z
+    k = len(alpha_table)-1
+    for (i,u),(j,v) in itertools.product(enumerate(states), repeat=2):
+        marginals[k,i,j] = alpha_table[k,i]*potential(u,v,None)/z
     
     return z, marginals
