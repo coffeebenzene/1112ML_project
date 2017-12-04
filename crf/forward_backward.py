@@ -15,7 +15,16 @@ def potential_func(w, vfeature_func, sentence):
     """
     def potential(yp, y, i): # Potential of state yp to y at index i.
         features = vfeature_func(yp, y, i, sentence)
-        return np.exp(np.dot(w, features))
+        t = np.dot(w, features)
+        if t > 350: #709: # To handle overflow
+            #print("POTENTIAL OVERFLOW : t={}".format(t))
+            #print((yp, y, i, sentence))
+            #print(sum(features))
+            #print(list(w))
+            #print("----------")
+            t = 350
+        p = np.exp(t)
+        return p
     
     return potential
 
@@ -35,7 +44,7 @@ def forward_backward(potential, sentence, states):
     statelen = len(states)
     
     # Calculate alpha scores
-    alpha_table = np.ndarray((len(sentence), statelen))
+    alpha_table = np.empty((len(sentence), statelen))
     # Initial forward step.
     for j, u in enumerate(states):
         alpha_table[0,j] = potential("START", u, 0)
@@ -45,11 +54,11 @@ def forward_backward(potential, sentence, states):
             alpha_table[i,j] = np.sum( alpha_table[i-1, k]*potential(v, u, i) for k,v in enumerate(states) )
     
     # Calculate beta scores
-    beta_table = np.ndarray((len(sentence), statelen))
+    beta_table = np.empty((len(sentence), statelen))
     # Initial backward step.
     i = len(sentence)-1
     for j, u in enumerate(states):
-        beta_table[i, j] = potential(u, "END", None)
+        beta_table[i, j] = potential(u, "STOP", None)
     # subsequent backward steps
     for i in range(len(sentence)-2, -1, -1):
         for j, u in enumerate(states):
@@ -76,7 +85,7 @@ def calc_z_marginals(alpha_table, beta_table, potential, states):
     z = np.sum(last_a*last_b)
     
     # Calculate marginals
-    marginals = np.ndarray((len(alpha_table), len(states), len(states)))
+    marginals = np.empty((len(alpha_table), len(states), len(states)))
     for k in range(len(alpha_table)-1):
         for (i,u),(j,v) in itertools.product(enumerate(states), repeat=2):
             marginals[k,i,j] = alpha_table[k,i]*potential(u,v,k+1)*beta_table[k, j]/z
