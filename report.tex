@@ -11,16 +11,32 @@
 \usepackage{graphicx}
 \usepackage[a4paper, margin=1in]{geometry}
 
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.8\baselineskip}
+
 \begin{document}
 \maketitle
 
 \section{Introduction}
 
-Please read the code, there are many comments, so it should be understandable which part is doing what assuming you know python.
-
-\bigskip
+\textbf{Please read the code, there are many comments, so it should be understandable which part is doing what assuming you know python. Using debug mode will also make the running of the program easier to view.}
 
 Note: For parts 2,3,4, we used python Fractions datatype, which have arbitary accuracy for rational numbers. This will solve any possible underflow issues. The processing time will be significantly slower than normal, but the program runs sufficiently fast.
+
+Our emission parameter and transmission parameter notation differs from notes. This should not affect meaning. We use this notation as it is more intuitive and thus easier to see.
+\begin{center}
+\begin{tabular}{|c|c|c|}
+\hline \rule{0pt}{1em}
+Parameter  & Notes & Our notation \\
+\hline \rule{0pt}{1em}
+Emission   & \(b_i(o)\) & \(e(o|i)\) \\
+\hline \rule{0pt}{1em}
+Transition & \(a_{i,j}\) & \(t(j|i)\) \\
+\hline
+\end{tabular}
+\end{center}
+
+Also, note that python is 0-indexed. Thus, 0 is the first index. We will use \(n-1\) to refer to the last index. (\(n\) is length of sequence)
 
 \subsection{How to run}
 There is a script for each part (2,3,4,5) of the project.
@@ -49,7 +65,7 @@ Assuming that the EN files are stored in the \verb|C:\Users\Eric\ML_project\EN| 
 
 Notes: The script was tested in windows. It should work under linux, but we did not check.
 
-\subsection{results}
+\subsection{Results}
 \[
 \begin{array}{|c|c|c|c|c|c|c|c|c|}
 \hline \rule{0pt}{1em}
@@ -88,7 +104,7 @@ In part 2, each word is treated independently as being generated from a Multinom
 
 The emission parameters \(e(x|y)\) are calculated by:
 
-(\(t\) indexes each sequence in the data: \((x_t, y_t)\). \(i\) indexes a single (word, tag) pair in the sequence: \((x_{t,i}, y_{t,i})\). )
+We use \(t\) in the following equations to index each sequence in the data: \((x_t, y_t)\). \(i\) indexes a single (word, tag) pair in the sequence: \((x_{t,i}, y_{t,i})\). (Note: There is no variable \(t\) in the code as it is not necessary.)
 \[ e(a|u) = \frac{\sum_t \sum_i [[x_{t,i}=a \land y_{t,i}=u]] }{\sum_{t} \sum_i [[y_{t,i}=u]] } \]
 
 We simply iterate through every sentence and every (word, tag) pair in the sentence and count the 2 sums above.
@@ -100,14 +116,20 @@ Emission parameters are stored in a nested dict. \verb|e[x][y]| is the emission 
 
 \subsection{Unknown characters}
 
-To handle unknown characters, the code simply loops through the \verb|counts_e| dict for every word \texttt{x} and checks if the count is lower than the threshold. If it is, the count is accumulated into a count for \texttt{\#UNK\#}. All the accumulated words are then removed from the counts dict (and therefore the emissions dict).
+To handle unknown characters, the code simply loops through the \verb|counts_e| dict for every word \texttt{x} and checks if the count is lower than the threshold. If it is, the count is accumulated into a count for \verb|#UNK#|. All the accumulated words are then removed from the counts dict (and therefore the emissions dict).
 
-In all decoding parts, when getting the emission parameter for a word, if a word does not exist in the emission parameters dict, the emission parameters for \texttt{\#UNK\#} are used instead.
+In all decoding parts, when getting the emission parameter for a word, if a word does not exist in the emission parameters dict, the emission parameters for \verb|#UNK#| are used instead.
 
 \subsection{Decoding}
 
 The \texttt{predict} function does the decoding. It treats each word individually and simply finds the maximum probability \( e(x|y) \ \forall y \).
 
+If \(x_{t,i} \in \) \verb|e| dictionary:
+\[y_{t,i}* = \underset{u}{\arg\max} \left( e(x_{t,i}|u) \right) \]
+Else: (treat as \verb|#UNK#|)
+\[y_{t,i}* = \underset{u}{\arg\max} \left( e(x_{t,i}|\verb|#UNK#|) \right) \]
+
+\subsection{Results}
 We used the \texttt{EvalResult.py} script provided to calculate the F-score. Detailed results are below:
 
 \[
@@ -137,6 +159,8 @@ We used the \texttt{EvalResult.py} script provided to calculate the F-score. Det
 
 Instead of treating each word independently, the input data is first chunked into sentences with \verb|sentence_gen()|. It is a python generator that loops through each line of the input file and uses blank lines to delimit sentences.
 
+We have converted the algorithm in the notes given into code, while accomodating python's language features.
+
 \subsection{Parameter estimation}
 
 The emission parameters \(e(x|y)\) are again calculated by:
@@ -144,10 +168,8 @@ The emission parameters \(e(x|y)\) are again calculated by:
 (\(t\) indexes each sequence in the data: \((x_t, y_t)\). \(i\) indexes a single (word, tag) pair in the sequence: \((x_{t,i}, y_{t,i})\). Also, \(i \in {0,...,n-1}\) where n is number of words in sentence \(t\). )
 \[ e(a|u) = \frac{\sum_t \sum_i [[x_{t,i}=a \land y_{t,i}=u]] }{\sum_{t} \sum_i [[y_{t,i}=u]] } \]
 
-The transition parameters are calculated by:
-
+The transition parameters \(t(v|u)\) are calculated by:
 \[ t(v|u) = \frac{\sum_t \sum_i [[y_{t,i}=v \land y_{t,i-1}=u]] }{\sum_{t} \sum_i [[y_{t,i-1}=u]] } \]
-
 Also, START and STOP are handled specially.
 \[ t(v|START) = \frac{\sum_t [[y_{t,0}=v]] }{\sum_{t} 1 } \]
 \[ t(STOP|u) = \frac{\sum_t [[y_{t,n-1}=u]] }{\sum_{t} 1 } \]
@@ -160,22 +182,43 @@ Transition parameters are stored in a nested dict. \verb|t[y][y_prev]| is the em
 
 The Viterbi algorithm first generates a table of \(\pi(i,y)\) values, where \(i\) is the index in the sentence and \(y\) is a tag. Again, note that pyhton is 0-indexed. The meaning of each \(\pi(i,y)\) is the (maximum probability of all sequences of length \(i\) ending with tag \(y\)).
 
+\textbf{Viterbi Table:}
 \[
 \begin{array}{|c|ccccc|}
 \hline \rule{0pt}{1em}
 & 0 & \cdots & i & \cdots & n-1 \\
 \hline \rule{0pt}{1em}
-O      & \pi(0,O) & \multicolumn{3}{c}{\cdots} & \pi(n-1,O) \\[0.1em]
+\mbox{O}          & \pi(0,\mbox{O}) & \multicolumn{3}{c}{\cdots} & \pi(n-1,\mbox{O}) \\[0.1em]
+\mbox{B-positive} & \pi(0,\mbox{B-positive}) & \multicolumn{3}{c}{\cdots} & \pi(n-1,\mbox{B-positive}) \\[0.1em]
 \vdots &          & \multicolumn{3}{c}{\cdots} &            \\[0.1em]
-y      & \multicolumn{2}{c}{\cdots} & \pi(y,i) & \multicolumn{2}{c|}{\cdots} \\[0.1em]
+y      & \multicolumn{2}{c}{\cdots} & \pi(i,y) & \multicolumn{2}{c|}{\cdots} \\[0.1em]
 \vdots &          & \multicolumn{3}{c}{\cdots} &            \\[0.1em]
 \hline
 \end{array}
 \]
+This table is represented as a list of dict in python:
+<INSERT CODE HERE>
 
 The first column is calculated as so:
-\[ \pi(0,y) = t(y|START) \times e(x_{t,0}|y) \quad \forall y \in {tags}\]
+\[ \pi(0,v) = t(v|START) \times e(x_{t,0}|v) \quad \forall v \in {tags}\]
+Subsequent columns are calculated as:\\
+For \(i\) from 1 to \(n-1\):
+\[ \pi(i,v) = \max_u \left( \pi(i-1,u) \times t(v|u) \right) \times e(x_{t,i}|v) \quad \forall v \in {tags}\]
 
+Note that \(e(x_{t,i}|v)\) in the above equations is the \verb|word_emissions| dict in the following code (\(x_{t,i}\) is \verb|word| variable. \verb|e| is a dict of dict of emission probabilities):
+\begin{verbatim}
+word_emissions = e.get(word)
+if word_emissions is None:
+    word_emissions = e["#UNK#"]
+\end{verbatim}
+
+In the backtracking step, the optimal \(y^*\) are predicted in reverse order:\\
+\(y_{t,n} = STOP\) \\
+For \(i\) from \(n-1\) to 0:
+\[y_{t,i}^* = \underset{v}{\arg\max} \left( \pi(i-1,v) \times t(y_{t,i+1}^*|v) \right)\]
+The \(y_{t,i}^*\) for each sentence \(t\) are rearranged in a python list to be in the correct order.
+
+\subsection{Results}
 Results from \verb|EvalResult.py|:
 \[
 \begin{array}{|c|c|c|c|c|}
@@ -202,6 +245,78 @@ Results from \verb|EvalResult.py|:
 
 \section{Part 4 - Max marginal}
 
+Parameter estimations are exactly the same as Part 3. As with the Viterbi algorithm, the algorithm used is from the notes.
+
+\bigskip
+
+Max-marginal decoding uses the forward backward algorithm to generate the marginal probabilities of each tag at a specific index.\\
+(i.e. \(P(Y_{t,i}=u | x_t)\) where \(Y_{t,i}\) is the distribution for tag \(y_{t,i}\). The notation for \(x_t\) is abused to mean that the distribution of words result in the sequence \(x_t\))
+
+2 tables are constructed: the \(\alpha\) table and the \(\beta\) table.
+
+\subsection{Alpha table}
+First the \(\alpha\) table, where \(\alpha(i, y) = P(Y_{t,i}=y, x_0, ... x_{i-1})\).\\
+Note that our convention differs in that \(u\) is not subscripted but a parameter of alpha. We believe this is clearer when converted into code. This convention does not affect the meaning.
+
+\textbf{Alpha Table:}
+\[
+\begin{array}{|c|cccccc|}
+\hline \rule{0pt}{1em}
+\mbox{word} & - & x_{t,0} & \cdots & x_{t,i-1} & \cdots & x_{t,n-2} \\
+\hline \rule{0pt}{1em}
+& 0 & 1 & \cdots & i & \cdots & n-1 \\
+\hline \rule{0pt}{1em}
+\mbox{O}          & \alpha(0,\mbox{O}) & \alpha(1,\mbox{O}) & \multicolumn{3}{c}{\cdots} & \alpha(n-1,\mbox{O}) \\[0.1em]
+\mbox{B-positive} & \alpha(0,\mbox{B-positive}) & \alpha(1,\mbox{B-positive}) & \multicolumn{3}{c}{\cdots} & \alpha(n-1,\mbox{B-positive}) \\[0.1em]
+\vdots & &         & \multicolumn{3}{c}{\cdots} &            \\[0.1em]
+y      & &\multicolumn{2}{c}{\cdots} & \alpha(i,y) & \multicolumn{2}{c|}{\cdots} \\[0.1em]
+\vdots & &         & \multicolumn{3}{c}{\cdots} &            \\[0.1em]
+\hline
+\end{array}
+\]
+This table is represented as a list of dict in python:
+<INSERT CODE HERE>
+
+The first column is calculated as so:
+\[ \alpha(0,u) = t(u|START) \quad \forall u \in {tags}\]
+Subsequent columns are calculated as:\\
+For \(i\) from 1 to \(n-1\):
+\[ \alpha(i,u) = \sum_v \left( \alpha(i-1,v) \times t(u|v) \times e(x_{t,i-1}|v) \right) \quad \forall u \in {tags}\]
+Note that the word \(x_{t,i-1}\) is offset by \(-1\) from \(i\). This is also shown in the table.
+
+\subsection{Beta table}
+Nest is the \(\beta\) table, where \(\beta(i,y) = P(x_i,...,x_n | Y_{t,i}=y) \)
+
+\textbf{Beta Table:}
+\[
+\begin{array}{|c|ccccc|}
+\hline \rule{0pt}{1em}
+\mbox{word} & x_{t,0} & \cdots & x_{t,i-1} & \cdots & x_{t,n-1} \\
+\hline \rule{0pt}{1em}
+& 0 & \cdots & i & \cdots & n-1 \\
+\hline \rule{0pt}{1em}
+\mbox{O}          & \beta(0,\mbox{O}) & \multicolumn{3}{c}{\cdots} & \beta(n-1,\mbox{O}) \\[0.1em]
+\mbox{B-positive} & \beta(0,\mbox{B-positive}) & \multicolumn{3}{c}{\cdots} & \beta(n-1,\mbox{B-positive}) \\[0.1em]
+\vdots &          & \multicolumn{3}{c}{\cdots} &            \\[0.1em]
+y      & \multicolumn{2}{c}{\cdots} & \beta(i,y) & \multicolumn{2}{c|}{\cdots} \\[0.1em]
+\vdots &          & \multicolumn{3}{c}{\cdots} &            \\[0.1em]
+\hline
+\end{array}
+\]
+This table is represented as a list of dict in python:
+<INSERT CODE HERE>
+
+Unlike viterbi or \(\alpha\), the last (\(n-1\)) column is calculated first.
+
+The last column is calculated as so:
+\[ \beta(n-1,u) = t(STOP|u) \times e(x_{t,n-1}|u) \quad \forall u \in {tags}\]
+Subsequent columns are calculated as:\\
+For \(i\) from \(n-2\) to 0:
+\[ \beta(i,u) = \sum_v \left( \beta(i+1,v) \times t(v|u) \times e(x_{t,i}|u) \right) \quad \forall u \in {tags} \]
+
+\subsection{Marginals}
+
+\subsection{Results}
 Results from \verb|EvalResult.py|:
 \[
 \begin{array}{|c|c|c|c|c|}
@@ -221,5 +336,12 @@ Results from \verb|EvalResult.py|:
 \hline
 \end{array}
 \]
+
+
+
+\pagebreak
+
+\section{Part 5 - challenge}
+
 
 \end{document}
