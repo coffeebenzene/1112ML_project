@@ -8,7 +8,7 @@
 \documentclass[12pt]{article}
 \usepackage{amsmath}
 \usepackage{amssymb}
-\usepackage{graphicx}
+\usepackage{hyperref}
 \usepackage[a4paper, margin=1in]{geometry}
 
 \setlength{\parindent}{0pt}
@@ -117,12 +117,12 @@ Emission parameters are stored in a nested dict. \verb|e[x][y]| is the emission 
 \begin{verbatim}
 e = {'word1': {'B-negative': emission_prob,
                'B-neutral': emission_prob,
-                ...
-               'O': emission_prob}
-      ...
-    '#UNK#':  {'B-negative': emission_prob,
+               ...
+               'O': emission_prob},
+     ...
+     '#UNK#': {'B-negative': emission_prob,
                'B-neutral': emission_prob,
-                ...
+               ...
                'O': emission_prob}
     }
 \end{verbatim}
@@ -193,15 +193,15 @@ Transition parameters are stored in a nested dict. \verb|t[y][y_prev]| is the em
 
 \begin{verbatim}
 t = {'B-negative': {'B-negative': transition_prob,
-                   'B-neutral': transition_prob,
+                    'B-neutral': transition_prob,
                     ...
-                   'START': transition_prob}
+                    'START': transition_prob},
      ...
     'STOP':       {'B-negative': transition_prob,
                    'B-neutral': transition_prob,
                     ...
                    'START': transition_prob}
-   }
+    }
 \end{verbatim}
 
 \subsection{Decoding}
@@ -222,8 +222,14 @@ y      & \multicolumn{2}{c}{\cdots} & \pi(i,y) & \multicolumn{2}{c|}{\cdots} \\[
 \hline
 \end{array}
 \]
-This table is represented as a list of dict in python:
-<INSERT CODE HERE>
+This table is represented as a list of dict in python, where each column is a dict:
+\begin{verbatim}
+viterbi_table = [{'B-negative': max P(Yi='B-negative', Yi-1, ..., Y0, X0, ..., Xi),
+                  ...,
+                  'O': max P(Yi='O', Yi-1, ..., Y0, X0, ..., Xi)},
+                 ...
+                ]
+\end{verbatim}
 
 The first column is calculated as so:
 \[ \pi(0,v) = t(v|START) \times e(x_{t,0}|v) \quad \forall v \in {tags}\]
@@ -300,10 +306,12 @@ y      & &\multicolumn{2}{c}{\cdots} & \alpha(i,y) & \multicolumn{2}{c|}{\cdots}
 \hline
 \end{array}
 \]
-This table is represented as a list of dict in python:
+This table is represented as a list of dict in python, where each column is a dict:
 \begin{verbatim}
-alpha_table = [{'B-negative': P(Yi='B-negative', X0...Xi-1), ..., 'O': P(Yi='O', X0...Xi-1)},
-              ...
+alpha_table = [{'B-negative': P(Yi='B-negative', X0, ..., Xi-1),
+                ...,
+                'O': P(Yi='O', X0, ..., Xi-1)},
+               ...
               ]
 \end{verbatim}
 
@@ -333,9 +341,11 @@ y      & \multicolumn{2}{c}{\cdots} & \beta(i,y) & \multicolumn{2}{c|}{\cdots} \
 \hline
 \end{array}
 \]
-This table is represented as a list of dict in python:
+This table is represented as a list of dict in python, where each column is a dict:
 \begin{verbatim}
-beta_table = [{'B-negative': P(Xi...Xn | Yi='B-negative'), ..., 'O': P(Xi...Xn | Yi='O')},
+beta_table = [{'B-negative': P(Xi, ..., Xn | Yi='B-negative'),
+               ...,
+               'O': P(Xi, ..., Xn | Yi='O')},
               ...
              ]
 \end{verbatim}
@@ -349,6 +359,17 @@ For \(i\) from \(n-2\) to 0:
 \[ \beta(i,u) = \sum_v \left( \beta(i+1,v) \times t(v|u) \times e(x_{t,i}|u) \right) \quad \forall u \in {tags} \]
 
 \subsection{Marginals}
+\begin{align*}
+\alpha(i,y) \times \beta(i,y) &= P(Y_{t,i}=y, x_0, ..., x_n) \\
+\sum_y \alpha(i,y) \times \beta(i,y) &= P(x_0, ..., x_n)
+\end{align*}
+\(\sum_y \alpha(i,y) \times \beta(i,y)\) is independent of \(y\). Debug mode checks that this is correct when decoding.
+
+The prediction for each optimal \(y^*\) uses the maximum \(\alpha(i,y) \times \beta(i,y)\) score. As seen in notes, \(P(Y_{t,i}=y | x_0, ..., x_n) \propto P(Y_{t,i}=y, x_0, ..., x_n) \).
+
+Predicting \(y^*\): \\
+For \(i\) from 0 to \(n-1\):
+\[y_{t,i}^* = \underset{u}{\arg\max} \left( \alpha(i,u) \times \beta(i,u) \right)\]
 
 \subsection{Results}
 Results from \verb|EvalResult.py|:
@@ -375,7 +396,24 @@ Results from \verb|EvalResult.py|:
 
 \pagebreak
 
-\section{Part 5 - challenge}
+\section{Part 5 - challenge attempt CRF}
+
+We initially tried to implement conditional random fields, based on exiting literature from:
+\begin{itemize}
+\item \url{http://blog.echen.me/2012/01/03/introduction-to-conditional-random-fields/}
+\item \url{http://www.cs.columbia.edu/~mcollins/}
+\item \url{http://pages.cs.wisc.edu/~jerryzhu/cs838/CRF.pdf}
+\item \url{http://homepages.inf.ed.ac.uk/csutton/publications/crf-tutorial.pdf}
+\item \url{http://homepages.inf.ed.ac.uk/csutton/publications/crftut-fnt.pdf} \\
+      (expanded version of above)
+\end{itemize}
+
+However, after implementing and attempting with only HMM features, we encountered numerical overflow from the \(e^{\theta \cdot f(y_{i-1}, y_i, \vec{x}, i)}\) calculation which we could not figure out how to handle. The L-BFGS-B solver used for gradient descent then failed to converge.
+
+Thus, we modified the HMM model instead.
+
+\section{Part 5 - challenge Modified Max Marginal}
+
 
 
 \end{document}
