@@ -8,13 +8,13 @@ import sys
 sys.stdout = open(sys.stdout.fileno(), mode='w', encoding='utf8', buffering=1)
 
 all_y = ("O", "B-positive", "B-neutral", "B-negative", "I-positive", "I-neutral", "I-negative")
-unk_threshold = 3 # k. If word appears less than this frequency, then word is treated as unknown.
+unk_threshold = 2 # k. If word appears less than this frequency, then word is treated as unknown.
 
 # Part 5.
 # Use list for ordered.
-extra_feature = [("THE", lambda x : x in ("the",)), # For english
+extra_feature = [#("THE", lambda x : x in ("the",)), # For english
                  #("THE", lambda x : x in  ("les", "des", "de", "la")), # For french
-                 #("PUNCT", lambda x : len(x)==1  and not x.isalnum() ),
+                 ("PUNCT", lambda x : len(x)==1  and not x.isalnum() ),
                 ]
 extra_tags = tuple(tag for tag, f in extra_feature)
 
@@ -113,7 +113,9 @@ def predict(e, t, in_file):
     """Generate list of tuples: [(sentence, prediction), ...]"""
     predictions = []
     
-    for sentence in sentence_gen(in_file):
+    for original_sentence in sentence_gen(in_file):
+        sentence = [x.casefold() for x in original_sentence] # Part 5.
+        #sentence = original_sentence # Part 5.
         # by index, each element is dict of {tags : forward probabilities}
         alpha_table = []
         # Initial forward step.
@@ -125,7 +127,6 @@ def predict(e, t, in_file):
         # steps are for states, but loop iterates over words. word i-1 is for state i.
         # 2nd step starts at word 0. Exclude index n/STOP state.
         for i, word in enumerate(sentence[:-1], 1):
-            word = word.casefold() # Part 5.
             d = {}
             word_emissions = e.get(word)
             if word_emissions is None:
@@ -176,13 +177,13 @@ def predict(e, t, in_file):
             predicted_y.append(opti_y)
         
         if debug:
-            pprint.pprint(sentence)
+            pprint.pprint(original_sentence)
             pprint.pprint(predicted_y)
         
         # Part 5.
         predicted_y = ["O" if y in extra_tags else y for y in predicted_y]
         
-        predictions.append((sentence, predicted_y))
+        predictions.append((original_sentence, predicted_y))
     
     return predictions
 
