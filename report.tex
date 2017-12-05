@@ -16,6 +16,10 @@
 
 \section{Introduction}
 
+Please read the code, there are many comments, so it should be understandable which part is doing what assuming you know python.
+
+\bigskip
+
 Note: For parts 2,3,4, we used python Fractions datatype, which have arbitary accuracy for rational numbers. This will solve any possible underflow issues. The processing time will be significantly slower than normal, but the program runs sufficiently fast.
 
 \subsection{How to run}
@@ -92,9 +96,13 @@ The counts are stored in 2 python dicts, the (word, tag) counts are accessed as 
 
 Note that python is 0-indexed. Thus, \(i \in \{0,...,n-1\}\) where n is the number of words in the sentence.
 
+Emission parameters are stored in a nested dict. \verb|e[x][y]| is the emission probability of (tag \verb|y|)\(\rightarrow\)(word \verb|x|).
+
 \subsection{Unknown characters}
 
-To handle unknown characters, the code simply loops through the \verb|counts_e| dict for every word \texttt{x} and checks if the count is lower than the threshold. If it is, the count is accumulated into a count for \texttt{\#UNK\#}. All the accumulated words are then removed from the counts dict.
+To handle unknown characters, the code simply loops through the \verb|counts_e| dict for every word \texttt{x} and checks if the count is lower than the threshold. If it is, the count is accumulated into a count for \texttt{\#UNK\#}. All the accumulated words are then removed from the counts dict (and therefore the emissions dict).
+
+In all decoding parts, when getting the emission parameter for a word, if a word does not exist in the emission parameters dict, the emission parameters for \texttt{\#UNK\#} are used instead.
 
 \subsection{Decoding}
 
@@ -107,13 +115,13 @@ We used the \texttt{EvalResult.py} script provided to calculate the F-score. Det
 \hline \rule{0pt}{1em}
 & \mbox{EN} & \mbox{FR} & \mbox{SG} & \mbox{CN} \\
 \hline \rule{0pt}{1em}
-\mbox{Gold data \#Entity}  & 226    & 223    & 1382   & 362   \\[0.1em]
-\mbox{Prediction \#Entity} & 1201   & 1149   & 6599   & 3318  \\[0.1em]
-\mbox{\#Correct Entity}    & 165    & 182    & 794    & 183   \\[0.1em]
+\mbox{Gold data \#Entity} & 226    & 223    & 1382   & 362    \\[0.1em]
+\mbox{Prediction \#Entity}& 1201   & 1149   & 6599   & 3318   \\[0.1em]
+\mbox{\#Correct Entity}   & 165    & 182    & 794    & 183    \\[0.1em]
 \mbox{Entity Precision}   & 0.1374 & 0.1584 & 0.1203 & 0.0552 \\[0.1em]
 \mbox{Entity Recall}      & 0.7301 & 0.8161 & 0.5745 & 0.5055 \\[0.1em]
 \mbox{Entity F}           & 0.2313 & 0.2653 & 0.1990 & 0.0995 \\[0.1em]
-\mbox{\#Correct Sentiment} & 71     & 68     & 315    & 57    \\[0.1em]
+\mbox{\#Correct Sentiment}& 71     & 68     & 315    & 57     \\[0.1em]
 \mbox{Sentiment Precision}& 0.0591 & 0.0592 & 0.0477 & 0.0172 \\[0.1em]
 \mbox{Sentiment Recall}   & 0.3142 & 0.3049 & 0.2279 & 0.1575 \\[0.1em]
 \mbox{Sentiment F}        & 0.0995 & 0.0991 & 0.0789 & 0.0310 \\[0.1em] 
@@ -146,9 +154,72 @@ Also, START and STOP are handled specially.
 
 In the program, the calculation of \(t(v|u)\) requires storing the value of \(y_{t,i-1}\). This is stored in \verb|prev_y| variable. By initializing \verb|prev_y| to START, calculation of \(t(v|START)\) is automatically handled.
 
+Transition parameters are stored in a nested dict. \verb|t[y][y_prev]| is the emission probability of (tag \verb|y_prev|)\(\rightarrow\)(tag \verb|y|).
+
 \subsection{Decoding}
 
+The Viterbi algorithm first generates a table of \(\pi(i,y)\) values, where \(i\) is the index in the sentence and \(y\) is a tag. Again, note that pyhton is 0-indexed. The meaning of each \(\pi(i,y)\) is the (maximum probability of all sequences of length \(i\) ending with tag \(y\)).
+
+\[
+\begin{array}{|c|ccccc|}
+\hline \rule{0pt}{1em}
+& 0 & \cdots & i & \cdots & n-1 \\
+\hline \rule{0pt}{1em}
+O      & \pi(0,O) & \multicolumn{3}{c}{\cdots} & \pi(n-1,O) \\[0.1em]
+\vdots &          & \multicolumn{3}{c}{\cdots} &            \\[0.1em]
+y      & \multicolumn{2}{c}{\cdots} & \pi(y,i) & \multicolumn{2}{c|}{\cdots} \\[0.1em]
+\vdots &          & \multicolumn{3}{c}{\cdots} &            \\[0.1em]
+\hline
+\end{array}
+\]
+
+The first column is calculated as so:
+\[ \pi(0,y) = t(y|START) \times e(x_{t,0}|y) \quad \forall y \in {tags}\]
+
+Results from \verb|EvalResult.py|:
+\[
+\begin{array}{|c|c|c|c|c|}
+\hline \rule{0pt}{1em}
+& \mbox{EN} & \mbox{FR} & \mbox{SG} & \mbox{CN} \\
+\hline \rule{0pt}{1em}
+\mbox{Gold data \#Entity} & 226    & 223    & 1382   & 362    \\[0.1em]
+\mbox{Prediction \#Entity}& 162    & 166    & 723    & 158    \\[0.1em]
+\mbox{\#Correct Entity}   & 104    & 112    & 386    & 64     \\[0.1em]
+\mbox{Entity Precision}   & 0.6420 & 0.6747 & 0.5339 & 0.4051 \\[0.1em]
+\mbox{Entity Recall}      & 0.4602 & 0.5022 & 0.2793 & 0.1768 \\[0.1em]
+\mbox{Entity F}           & 0.5361 & 0.5758 & 0.3667 & 0.2462 \\[0.1em]
+\mbox{\#Correct Sentiment}& 64     & 72     & 244    & 47     \\[0.1em]
+\mbox{Sentiment Precision}& 0.3951 & 0.4337 & 0.3375 & 0.2975 \\[0.1em]
+\mbox{Sentiment Recall}   & 0.2832 & 0.3229 & 0.1766 & 0.1298 \\[0.1em]
+\mbox{Sentiment F}        & 0.3299 & 0.3702 & 0.2318 & 0.1808 \\[0.1em] 
+\hline
+\end{array}
+\]
 
 
+
+\pagebreak
+
+\section{Part 4 - Max marginal}
+
+Results from \verb|EvalResult.py|:
+\[
+\begin{array}{|c|c|c|c|c|}
+\hline \rule{0pt}{1em}
+& \mbox{EN} & \mbox{FR} & \mbox{SG} & \mbox{CN} \\
+\hline \rule{0pt}{1em}
+\mbox{Gold data \#Entity} & 226    & 223    & 1382   & 362    \\[0.1em]
+\mbox{Prediction \#Entity}& 175    & 173    & 767    & 189    \\[0.1em]
+\mbox{\#Correct Entity}   & 108    & 113    & 391    & 67     \\[0.1em]
+\mbox{Entity Precision}   & 0.6171 & 0.6532 & 0.5098 & 0.3545 \\[0.1em]
+\mbox{Entity Recall}      & 0.4779 & 0.5067 & 0.2829 & 0.1851 \\[0.1em]
+\mbox{Entity F}           & 0.5387 & 0.5707 & 0.3639 & 0.2432 \\[0.1em]
+\mbox{\#Correct Sentiment}& 69     & 73     & 256    & 47     \\[0.1em]
+\mbox{Sentiment Precision}& 0.3943 & 0.4220 & 0.3338 & 0.2487 \\[0.1em]
+\mbox{Sentiment Recall}   & 0.3053 & 0.3274 & 0.1852 & 0.1298 \\[0.1em]
+\mbox{Sentiment F}        & 0.3441 & 0.3687 & 0.2383 & 0.1706 \\[0.1em] 
+\hline
+\end{array}
+\]
 
 \end{document}
