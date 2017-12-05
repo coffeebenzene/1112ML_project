@@ -1,18 +1,7 @@
 import argparse
-import collections
-import itertools
 import os.path
+from fractions import Fraction
 import time
-
-import numpy as np
-from scipy.optimize import minimize
-
-import crf.crf_feature as crf_feature
-import crf.forward_backward as fb
-
-# For debugging
-import sys
-sys.stdout = open(sys.stdout.fileno(), mode='w', encoding='utf8', buffering=1)
 
 all_y = ("O", "B-positive", "B-neutral", "B-negative", "I-positive", "I-neutral", "I-negative")
 all_y_ss = all_y + ("START", "STOP")
@@ -38,170 +27,126 @@ def sentence_gen(f):
     if sentence:
         yield sentence
 
-
-
-def preprocess_train(training_file):
-    """Preprocess data and return
-       1. train data: [(sentence, tags), ...]
-       2. wordcount: {word: count}
-    """
-    train_data = []
-    wordcount = collections.Counter() # To identify UNK words
-    
-    # Split tags and count words
-    for sentence_data in sentence_gen(training_file):
-        sentence = []
-        tags = []
-        for pair in sentence_data:
-            x, y = pair.rsplit(" ", 1) # word, tag
-            x = x.casefold()
-            sentence.append(x)
-            tags.append(y)
-        wordcount.update(sentence)
-        train_data.append((sentence, tags))
-    
-    # Replace UNK words
-    unk_words = set()
-    unk_count = 0
-    for word, count in wordcount.items():
-        if count < unk_threshold:
-            unk_words.add(count)
-            unk_count += count
-    for word in unk_words:
-        del wordcount[word]
-    wordcount["#UNK#"] = unk_count
-    for sentence, tags in train_data:
-        for i, word in enumerate(sentence):
-            if word in unk_words:
-                sentence[i] = "#UNK#"
-    
-    return train_data, wordcount
-
 def train(training_file):
-    train_data, wordcount = preprocess_train(training_file)
+    # counts_e[x][y] is emission of (tag y)->(word x)
+    counts_e = {}
+    # counts_t[next][prev] is transition from (prev)->(next)
+    counts_t = {n : {p:0 for p in all_y+("START",)}
+                for n in all_y+("STOP",)}
+    # raw count of tags
+    counts_y = {y:0 for y in all_y_ss}
     
-    if debug: #DEBUG
-        print(len(train_data))
-        print("-"*10)
+    for sentence in sentence_gen(training_file):
+        counts_y["START"] += 1
+        prev_y = "START"
+        for pair in sentence:
+            x, y = pair.rsplit(" ", 1) # word, tag
+            if x not in counts_e:
+                counts_e[x] = {y:0 for y in all_y}
+            counts_e[x][y] += 1
+            counts_t[y][prev_y] += 1
+            counts_y[y] += 1
+            prev_y = y
+        counts_y["STOP"] += 1
+        counts_t["STOP"][prev_y] += 1
     
-    vfeature_func, feature_len = crf_feature.make_vfeature_func(all_y_ss, wordcount.keys())
+    # Accumulate low frequency words into #UNK#.
+    to_unk = []
+    counts_unk = {y:0 for y in all_y}
+    for x, y_to_x in counts_e.items():
+        if sum(y_to_x.values()) < unk_threshold:
+            to_unk.append(x)
+            for y, count in y_to_x.items(): # Add counts to #UNK#
+                counts_unk[y] += count
+    for x in to_unk:
+        del counts_e[x]
+    counts_e["#UNK#"] = counts_unk
     
-    regularizer = 5 # Larger is more regularization
+    # Emission probabilities
+    e = {}
+    for x, y_to_x in counts_e.items():
+        e[x] = {}
+        for y, count in y_to_x.items():
+            e[x][y] = Fraction(count, counts_y[y])
+    # Transition probabilities
+    t = {}
+    for y_next, prev_to_next in counts_t.items():
+        t[y_next] = {}
+        for y_prev, count in prev_to_next.items():
+            t[y_next][y_prev] = Fraction(count, counts_y[y_prev])
     
-    def loss_grad(w):
-        loss = 0
-        grad = np.zeros(len(w))
-        if debug: # DEBUG
-            print("-"*10)
-            print(w)
-            print("max:{} | min:{}".format(np.max(w), np.min(w)))
-            start = time.time()
-        # regulariser
-        loss += np.dot(w,w)*regularizer
-        grad += w*regularizer*2
-        # Per sentence
-        for sentence, tags in train_data:
-            potential = fb.potential_func(w, vfeature_func, sentence)
-            alpha_table, beta_table = fb.forward_backward(potential, sentence, all_y)
-            z, marginals = fb.calc_z_marginals(alpha_table, beta_table, potential, all_y)
-            
-            # Fixed per sentence calculation
-            loss += np.log(z)
-            # Per word calculation
-            prev_tag = "START"
-            for i, tag in enumerate(tags):
-                feature = vfeature_func(prev_tag, tag, i, sentence)
-                loss -= np.dot(w, feature)
-                grad -= feature
-                prev_tag = tag
-            feature = vfeature_func(prev_tag, "STOP", None, sentence)
-            loss -= np.dot(w, feature)
-            grad -= feature
-            # hard part of crf
-            for k in range(len(tags)):
-                for (i,u),(j,v) in itertools.product(enumerate(all_y), repeat=2):
-                    grad += marginals[k,i,j]*vfeature_func(u, v, k, sentence)
-        if debug: # DEBUG
-            print("loss:{}".format(loss))
-            print("grad:{}".format(grad))
-            print(time.time()-start)
-            print("-"*10)
-        return loss, grad
-    
-    bounds = [[None,None] for i in range(feature_len)]
-    bounds[0] = [1,1]
-    result = minimize(loss_grad, np.ones(feature_len),
-                      jac=True, method="L-BFGS-B", bounds = bounds,
-                      options = {"ftol":1e-7, "gtol":10, "disp":debug})
-                      #options = {"ftol":1*np.finfo(float).eps, "gtol":1e-15, "disp":True})
-                      # use default accuracy.
-    
-    if debug:
-        print(result)
-    model = {"vfeature_func": vfeature_func,
-             "feature_len": feature_len,
-             "weights": result.x,
-             "wordcount": wordcount,
-    }
-    return model
+    return e, t
+    # should return emission parameters and transition parameters.
 
-
-
-def predict(model, in_file):
+def predict(e, t, in_file):
     """Generate list of tuples: [(sentence, prediction), ...]"""
-    wordcount = model["wordcount"]
-    w = model["weights"]
-    vfeature_func = model["vfeature_func"]
-    
     predictions = []
     
-    for original_sentence in sentence_gen(in_file):
-        # Filter unknown words.
-        sentence = [word.casefold() for word in original_sentence]
-        sentence = [word if (word in wordcount) else "#UNK#" for word in sentence]
+    for sentence in sentence_gen(in_file):
+        # by index, each element is dict of {tags : forward probabilities}
+        alpha_table = []
+        # Initial forward step.
+        d = {}
+        for u in all_y:
+            d[u] = t[u]["START"]
+        alpha_table.append(d)
+        # subsequent forward steps
+        # steps are for states, but loop iterates over words. word i-1 is for state i.
+        # 2nd step starts at word 0. Exclude index n/STOP state.
+        for i, word in enumerate(sentence[:-1], 1):
+            d = {}
+            word_emissions = e.get(word)
+            if word_emissions is None:
+                word_emissions = e["#UNK#"]
+            for u in all_y:
+                d[u] = sum( alpha_table[i-1][v] * t[u][v] * word_emissions[v] for v in all_y )
+            alpha_table.append(d)
         
-        # row: index of sentence, col: state/tag.
-        # Value is max log probability for that word to be that tag.
-        viterbi_table = np.empty((len(sentence), len(all_y)))
-        # Backtracking pointer. Holds the previous state the resulted in cell's value. 
-        viterbi_backtrack = np.empty((len(sentence), len(all_y)), dtype=np.int32)
-        # Initial step.
-        i = 0
-        for j, u in enumerate(all_y):
-            viterbi_table[i,j] = np.dot(w, vfeature_func("START", u, 0, sentence))
-        # subsequent steps
-        for i in range(1, len(sentence)):
-            for j, u in enumerate(all_y):
-                possibilities = [viterbi_table[i-1,k]
-                                 + np.dot(w, vfeature_func(v, u, i, sentence))
-                                 for k, v in enumerate(all_y)
-                                ]
-                viterbi_table[i,j] = np.max(possibilities)
-                viterbi_backtrack[i,j] = np.argmax(possibilities)
-        # last step.
-        i = len(sentence)
-        final_possibilities = [viterbi_table[i-1,k]
-                               + np.dot(w, vfeature_func(v, "STOP", None, sentence))
-                               for k, v in enumerate(all_y)
-                              ]
-        max_state_index = np.argmax(final_possibilities)
-        
-        # backtracking.
-        predicted_y = [None for word in sentence]
-        predicted_y[-1] = max_state_index
+        # by index, each element is dict of {tags : backward probabilities}
+        beta_table = [None for word in sentence] # preinitialize length
+        # Initial backward step.
+        d = {}
+        word_emissions = e.get(sentence[-1])
+        if word_emissions is None:
+            word_emissions = e["#UNK#"]
+        for u in all_y:
+            d[u] = t["STOP"][u]*word_emissions[u]
+        beta_table[-1] = d
+        # subsequent backward steps
         for i in range(len(sentence)-2, -1, -1):
-            next_state_idx = predicted_y[i+1]
-            curr_max_state_idx = viterbi_backtrack[i+1, next_state_idx]
-            predicted_y[i] = curr_max_state_idx
-        predicted_y = [all_y[idx] for idx in predicted_y]
-        predicted_y.reverse()
+            d = {}
+            word_emissions = e.get(sentence[i])
+            if word_emissions is None:
+                word_emissions = e["#UNK#"]
+            for u in all_y:
+                d[u] = sum( beta_table[i+1][v] * t[v][u] * word_emissions[u] for v in all_y )
+            beta_table[i] = d
+        
+        if debug: # validate the alpha/beta values
+            pprint.pprint(alpha_table)
+            pprint.pprint(beta_table)
+            Z_values = []
+            for alpha_d, beta_d in zip(alpha_table, beta_table):
+                combine_d = {}
+                for tag in all_y:
+                    combine_d[tag] = alpha_d[tag]*beta_d[tag]
+                z = sum(combine_d.values())
+                Z_values.append(z)
+            if any(z != Z_values[0] for z in Z_values): # check if any not the same
+                print("WARNING: {}".format(sentence))
+                print("Z-values (marginal probability of words in sentence) not all equal:\n{}".format(Z_values))
+        
+        # do prediction
+        predicted_y = []
+        for alpha_d, beta_d in zip(alpha_table, beta_table):
+            marginal, opti_y = max( (alpha_d[u]*beta_d[u], u) for u in all_y )
+            predicted_y.append(opti_y)
         
         if debug:
-            pprint.pprint(original_sentence)
             pprint.pprint(sentence)
             pprint.pprint(predicted_y)
         
-        predictions.append((original_sentence, predicted_y))
+        predictions.append((sentence, predicted_y))
     
     return predictions
 
@@ -209,11 +154,15 @@ def predict(model, in_file):
 def main(args):
     train_path = os.path.join(args.folder, args.train)
     with open(train_path, encoding="utf-8") as training_file:
-        model = train(training_file)
+        e, t = train(training_file)
+    
+    if debug:
+        pprint.pprint(e)
+        pprint.pprint(t)
     
     infile_path = os.path.join(args.folder, args.infile)
     with open(infile_path, encoding="utf-8") as in_file:
-        predictions = predict(model, in_file)
+        predictions = predict(e, t, in_file)
     
     outfile_path = os.path.join(args.folder, args.outfile)
     with open(outfile_path, "w", encoding="utf-8") as out_file:
@@ -241,7 +190,6 @@ if __name__ == "__main__":
     debug = args.debug
     if debug:
         import pprint
-    import pprint # DEBUG
     
     start_time = time.time()
     main(args)
