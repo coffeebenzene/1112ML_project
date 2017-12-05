@@ -3,9 +3,38 @@ import os.path
 from fractions import Fraction
 import time
 
+# For debugging
+import sys
+sys.stdout = open(sys.stdout.fileno(), mode='w', encoding='utf8', buffering=1)
+
 all_y = ("O", "B-positive", "B-neutral", "B-negative", "I-positive", "I-neutral", "I-negative")
-all_y_ss = all_y + ("START", "STOP")
 unk_threshold = 3 # k. If word appears less than this frequency, then word is treated as unknown.
+
+# Part 5.
+# Use list for ordered.
+extra_feature = [("THE", lambda x : x in ("the",)), # For english
+                 #("THE", lambda x : x in  ("les", "des", "de", "la")), # For french
+                 #("PUNCT", lambda x : len(x)==1  and not x.isalnum() ),
+                ]
+extra_tags = tuple(tag for tag, f in extra_feature)
+
+# Modify tags.
+all_y = all_y + extra_tags
+all_y_ss = all_y + ("START", "STOP")
+
+# Part 5.
+def preprocess(x, y):
+    """Preprocess word,tag pair and changes tag to different tag if the extra feature is fulfilled.
+       Also casefolds x.
+       returns processed x,y
+    """
+    x = x.casefold()
+    if y=="O":
+        for tag, f in extra_feature:
+            if f(x):
+                y=tag
+                break
+    return x, y
 
 def sentence_gen(f):
     """Generates a list of strings for a sentence.
@@ -41,6 +70,7 @@ def train(training_file):
         prev_y = "START"
         for pair in sentence:
             x, y = pair.rsplit(" ", 1) # word, tag
+            x, y = preprocess(x, y) # Part 5
             if x not in counts_e:
                 counts_e[x] = {y:0 for y in all_y}
             counts_e[x][y] += 1
@@ -68,6 +98,7 @@ def train(training_file):
         e[x] = {}
         for y, count in y_to_x.items():
             e[x][y] = Fraction(count, counts_y[y])
+    
     # Transition probabilities
     t = {}
     for y_next, prev_to_next in counts_t.items():
@@ -94,6 +125,7 @@ def predict(e, t, in_file):
         # steps are for states, but loop iterates over words. word i-1 is for state i.
         # 2nd step starts at word 0. Exclude index n/STOP state.
         for i, word in enumerate(sentence[:-1], 1):
+            word = word.casefold() # Part 5.
             d = {}
             word_emissions = e.get(word)
             if word_emissions is None:
@@ -133,6 +165,7 @@ def predict(e, t, in_file):
                 z = sum(combine_d.values())
                 Z_values.append(z)
             if any(z != Z_values[0] for z in Z_values): # check if any not the same
+                Z_values = [float(z) for z in Z_values]
                 print("WARNING: {}".format(sentence))
                 print("Z-values (marginal probability of words in sentence) not all equal:\n{}".format(Z_values))
         
@@ -145,6 +178,9 @@ def predict(e, t, in_file):
         if debug:
             pprint.pprint(sentence)
             pprint.pprint(predicted_y)
+        
+        # Part 5.
+        predicted_y = ["O" if y in extra_tags else y for y in predicted_y]
         
         predictions.append((sentence, predicted_y))
     
