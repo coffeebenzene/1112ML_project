@@ -1,0 +1,126 @@
+\title{01.112 Machine Learning Project Report}
+\author{
+    Eric Teo 1001526
+    Keong Jo Hsi 1001685
+}
+\date{\today}
+
+\documentclass[12pt]{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage[a4paper, margin=1in]{geometry}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+
+Note: For parts 2,3,4, we used python Fractions datatype, which have arbitary accuracy for rational numbers. This will solve any possible underflow issues. The processing time will be significantly slower than normal, but the program runs sufficiently fast.
+
+\subsection{How to run}
+There is a script for each part (2,3,4,5) of the project.
+
+The syntax for each script is as follows:
+
+\begin{verbatim}
+python part#.py -t trainfile -i infile -o outfile -f folder [-d]
+\end{verbatim}
+Where:
+\begin{itemize}
+\item \texttt{\#} in \texttt{part\#.py} is the part number
+\item \texttt{trainfile} is the name of the file used for training (defaults to \texttt{train})
+\item \texttt{infile} is the name of the file with validation data to be annotated (defaults to \texttt{dev.in})
+\item \texttt{outfile} is the name of the output file to write annotated data to (defaults to \texttt{dev.p\#.out})
+\item \texttt{folder} is the path of the folder where trainfile, infile and outfile are at. (defaults to \texttt{.} the current folder) \\
+This makes it more convenient to run the script. No need write the full path of files. (i.e. \texttt{trainfile}, \texttt{infile} and \texttt{outfile} are relative paths from folder.)
+\item \texttt{-d} is an option for debug mode. The script will print (large amounts of) debug info while calculating.
+\end{itemize}
+
+Example execution:
+\begin{verbatim}
+python part4.py -f "C:\Users\Eric\ML_project\EN" -d
+\end{verbatim}
+Assuming that the EN files are stored in the \verb|C:\Users\Eric\ML_project\EN| folder, This will run the part4 script on the EN files with debug information. The output will be in \verb|C:\Users\Eric\ML_project\EN\dev.p4.out|.
+
+Notes: The script was tested in windows. It should work under linux, but we did not check.
+
+\subsection{results}
+\[
+\begin{array}{|c|c|c|c|c|c|c|c|c|}
+\hline \rule{0pt}{1em}
+& \multicolumn{2}{c|}{\mbox{EN}}
+& \multicolumn{2}{c|}{\mbox{FR}}
+& \multicolumn{2}{c|}{\mbox{SG}}
+& \multicolumn{2}{c|}{\mbox{CN}} \\
+\hline \rule{0pt}{1em}
+            & \mbox{Entity} & \mbox{Sentiment} 
+            & \mbox{Entity} & \mbox{Sentiment}
+            & \mbox{Entity} & \mbox{Sentiment}
+            & \mbox{Entity} & \mbox{Sentiment} \\
+\mbox{Part} & \mbox{F-score} & \mbox{F-score} 
+            & \mbox{F-score} & \mbox{F-score}
+            & \mbox{F-score} & \mbox{F-score}
+            & \mbox{F-score} & \mbox{F-score} \\
+\hline \rule{0pt}{1em}
+\mbox{Part 2} & 0.2313 & 0.0995 & 0.2653 & 0.0991 & 0.1990 & 0.0789 & 0.0995 & 0.0310 \\
+\hline \rule{0pt}{1em}
+\mbox{Part 3} & 0.5361 & 0.3299 & 0.5758 & 0.3702 & 0.3667 & 0.2318 & 0.2462 & 0.1808 \\
+\hline \rule{0pt}{1em}
+\mbox{Part 4} & 0.5387 & 0.3441 & 0.5707 & 0.3687 & 0.3639 & 0.2383 & 0.2432 & 0.1706 \\
+\hline
+\end{array}
+\]
+
+
+
+\pagebreak
+
+\section{Part 2 - Mixture model}
+
+In part 2, each word is treated independently as being generated from a Multinomial mixture model.
+
+\subsection{Parameter estimation}
+
+The paramters `e(x|y)` are calculated by: (\(t\) indexes each sequence in the data: \((x_t, y_t)\). \(i\) indexes a single (word, tag) pair in the sequence: \((x_{ti}, y_{ti})\). )
+\[ e(a|u) = \frac{\sum_t \sum_i [[y_t=u AND x_t=a]] }{\sum_{t} \sum_i [[Count(y_t=u)]] } \]
+
+We simply iterate through every sentence and every (word, tag) pair in the sentence and count the 2 sums above.
+The counts are stored in 2 python dicts, the (word, tag) counts are accessed as \texttt{counts\_e[x][y]}. The word counts are accessed as \texttt{counts\_y[y]}.
+
+\subsection{Unknown characters}
+
+To handle unknown characters, the code simply loops through the \texttt{counts\_e} dict for every word \texttt{x} and checks if the count is lower than the threshold. If it is, the count is accumulated into a count for \texttt{\#UNK\#}. All the accumulated words are then removed from the counts dict.
+
+\subsection{Decoding}
+
+The \texttt{predict} function does the decoding. It treats each word individually and simply finds the maximum probability \( e(x|y) \ \forall y \).
+
+We used the \texttt{EvalResult.py} script provided to calculate the F-score. Detailed results are below:
+
+\[
+\begin{array}{|c|c|c|c|c|}
+\hline \rule{0pt}{1em}
+& \mbox{EN} & \mbox{FR} & \mbox{SG} & \mbox{CN} \\
+\hline \rule{0pt}{1em}
+\mbox{Gold data \#Entity}  & 226    & 223    & 1382   & 362   \\[0.1em]
+\mbox{Prediction \#Entity} & 1201   & 1149   & 6599   & 3318  \\[0.1em]
+\mbox{\#Correct Entity}    & 165    & 182    & 794    & 183   \\[0.1em]
+\mbox{Entity Precision}   & 0.1374 & 0.1584 & 0.1203 & 0.0552 \\[0.1em]
+\mbox{Entity Recall}      & 0.7301 & 0.8161 & 0.5745 & 0.5055 \\[0.1em]
+\mbox{Entity F}           & 0.2313 & 0.2653 & 0.1990 & 0.0995 \\[0.1em]
+\mbox{\#Correct Sentiment} & 71     & 68     & 315    & 57    \\[0.1em]
+\mbox{Sentiment Precision}& 0.0591 & 0.0592 & 0.0477 & 0.0172 \\[0.1em]
+\mbox{Sentiment Recall}   & 0.3142 & 0.3049 & 0.2279 & 0.1575 \\[0.1em]
+\mbox{Sentiment F}        & 0.0995 & 0.0991 & 0.0789 & 0.0310 \\[0.1em] 
+\hline
+\end{array}
+\]
+
+
+
+\pagebreak
+
+\section{Part 3 - Viterbi}
+
+\end{document}
