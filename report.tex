@@ -414,6 +414,45 @@ Thus, we modified the HMM model instead.
 
 \section{Part 5 - challenge Modified Max Marginal}
 
+Considering that the training and validation data sets are extremely noisy, we decided to use the max marginal algorithm for decoding.
 
+Max marginal is used as it is expected to be less sensitive to noise. While Viterbi attempts to find the maximum probability sequence of tags, max marginal simply finds the maximum probability of a single tag given the sentence. This makes the result less dependent on the entire sequence.
+
+We made 4 modifications to test:
+\begin{itemize}
+\item Lowercase all words via \verb|.casefold()|. (\verb|.casefold()| is simply a more aggressive version of \verb|.lower()|, it should not make a significant different from using \verb|.lower()|)
+\item Define a new tag ``THE''. If a word is ``the'' or similar in the language, and is tagged ``O'', retag it as ``THE''. This many named entities have a word ``the'' before the entity. This is intended to try to account for this feature.
+\item Define a new tag ``PUNCT''. If a word is punctuation (non-alphanumeric and length 1), and is tagged ``O'', retag it as ``PUNCT''. This is intended to try to account for punctuation as a feature.
+\item Change the \verb|#UNK#| threshold to a different value.
+\end{itemize}
+
+In order to implement these modifications, the training and prediction data are simply preprocessed to include this changes.
+
+After testing with various combinations, it seems that:
+\begin{itemize}
+\item For the EN dataset, \verb|#UNK#| threshold = 2 and lowercasing gives the best results.
+\item For the FR dataset, \verb|#UNK#| threshold = 2, lowercasing and the ``PUNCT'' tag gives the best results.
+\end{itemize}
+
+\subsection{Results}
+Results for the 2 best performing combinations of modifications from \verb|EvalResult.py|:
+\[
+\begin{array}{|c|c|c|}
+\hline \rule{0pt}{1em}
+& \mbox{EN} & \mbox{FR} \\
+\hline \rule{0pt}{1em}
+\mbox{Gold data \#Entity} & 226    & 223    \\[0.1em]
+\mbox{Prediction \#Entity}& 186    & 180    \\[0.1em]
+\mbox{\#Correct Entity}   & 113    & 119    \\[0.1em]
+\mbox{Entity Precision}   & 0.6075 & 0.6611 \\[0.1em]
+\mbox{Entity Recall}      & 0.5000 & 0.5336 \\[0.1em]
+\mbox{Entity F}           & 0.5485 & 0.5906 \\[0.1em]
+\mbox{\#Correct Sentiment}& 76     & 84     \\[0.1em]
+\mbox{Sentiment Precision}& 0.4086 & 0.4667 \\[0.1em]
+\mbox{Sentiment Recall}   & 0.3363 & 0.3767 \\[0.1em]
+\mbox{Sentiment F}        & 0.3689 & 0.4169 \\[0.1em] 
+\hline
+\end{array}
+\]
 
 \end{document}
