@@ -114,6 +114,19 @@ Note that python is 0-indexed. Thus, \(i \in \{0,...,n-1\}\) where n is the numb
 
 Emission parameters are stored in a nested dict. \verb|e[x][y]| is the emission probability of (tag \verb|y|)\(\rightarrow\)(word \verb|x|).
 
+\begin{verbatim}
+e = {'word1': {'B-negative': emission_prob,
+               'B-neutral': emission_prob,
+                ...
+               'O': emission_prob}
+      ...
+    '#UNK#':  {'B-negative': emission_prob,
+               'B-neutral': emission_prob,
+                ...
+               'O': emission_prob}
+    }
+\end{verbatim}
+
 \subsection{Unknown characters}
 
 To handle unknown characters, the code simply loops through the \verb|counts_e| dict for every word \texttt{x} and checks if the count is lower than the threshold. If it is, the count is accumulated into a count for \verb|#UNK#|. All the accumulated words are then removed from the counts dict (and therefore the emissions dict).
@@ -177,6 +190,19 @@ Also, START and STOP are handled specially.
 In the program, the calculation of \(t(v|u)\) requires storing the value of \(y_{t,i-1}\). This is stored in \verb|prev_y| variable. By initializing \verb|prev_y| to START, calculation of \(t(v|START)\) is automatically handled.
 
 Transition parameters are stored in a nested dict. \verb|t[y][y_prev]| is the emission probability of (tag \verb|y_prev|)\(\rightarrow\)(tag \verb|y|).
+
+\begin{verbatim}
+t = {'B-negative': {'B-negative': transition_prob,
+                   'B-neutral': transition_prob,
+                    ...
+                   'START': transition_prob}
+     ...
+    'STOP':       {'B-negative': transition_prob,
+                   'B-neutral': transition_prob,
+                    ...
+                   'START': transition_prob}
+   }
+\end{verbatim}
 
 \subsection{Decoding}
 
@@ -275,7 +301,11 @@ y      & &\multicolumn{2}{c}{\cdots} & \alpha(i,y) & \multicolumn{2}{c|}{\cdots}
 \end{array}
 \]
 This table is represented as a list of dict in python:
-<INSERT CODE HERE>
+\begin{verbatim}
+alpha_table = [{'B-negative': P(Yi='B-negative', X0...Xi-1), ..., 'O': P(Yi='O', X0...Xi-1)},
+              ...
+              ]
+\end{verbatim}
 
 The first column is calculated as so:
 \[ \alpha(0,u) = t(u|START) \quad \forall u \in {tags}\]
@@ -304,7 +334,11 @@ y      & \multicolumn{2}{c}{\cdots} & \beta(i,y) & \multicolumn{2}{c|}{\cdots} \
 \end{array}
 \]
 This table is represented as a list of dict in python:
-<INSERT CODE HERE>
+\begin{verbatim}
+beta_table = [{'B-negative': P(Xi...Xn | Yi='B-negative'), ..., 'O': P(Xi...Xn | Yi='O')},
+              ...
+             ]
+\end{verbatim}
 
 Unlike viterbi or \(\alpha\), the last (\(n-1\)) column is calculated first.
 
