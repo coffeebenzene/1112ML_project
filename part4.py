@@ -91,8 +91,8 @@ def predict(e, t, in_file):
             d[u] = t[u]["START"]
         alpha_table.append(d)
         # subsequent forward steps
-        # steps are for states, but loop iterates over words. word n is for state n+1.
-        # 2nd step starts at word 0. Exclude index n+1/STOP state.
+        # steps are for states, but loop iterates over words. word i-1 is for state i.
+        # 2nd step starts at word 0. Exclude index n/STOP state.
         for i, word in enumerate(sentence[:-1], 1):
             d = {}
             word_emissions = e.get(word)
