@@ -14,7 +14,7 @@ unk_threshold = 2 # k. If word appears less than this frequency, then word is tr
 # Use list for ordered.
 extra_feature = [#("THE", lambda x : x in ("the",)), # For english
                  #("THE", lambda x : x in  ("les", "des", "de", "la")), # For french
-                 ("PUNCT", lambda x : len(x)==1  and not x.isalnum() ),
+                 #("PUNCT", lambda x : len(x)==1  and not x.isalnum() ),
                 ]
 extra_tags = tuple(tag for tag, f in extra_feature)
 
