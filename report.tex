@@ -98,6 +98,19 @@ Note that python is 0-indexed. Thus, \(i \in \{0,...,n-1\}\) where n is the numb
 
 Emission parameters are stored in a nested dict. \verb|e[x][y]| is the emission probability of (tag \verb|y|)\(\rightarrow\)(word \verb|x|).
 
+\begin{verbatim}
+e = {'word1': {'B-negative': emission_prob,
+               'B-neutral': emission_prob,
+                ...
+               'O': emission_prob}
+      ...
+    '#UNK#':  {'B-negative': emission_prob,
+               'B-neutral': emission_prob,
+                ...
+               'O': emission_prob}
+    }
+\end{verbatim}
+
 \subsection{Unknown characters}
 
 To handle unknown characters, the code simply loops through the \verb|counts_e| dict for every word \texttt{x} and checks if the count is lower than the threshold. If it is, the count is accumulated into a count for \texttt{\#UNK\#}. All the accumulated words are then removed from the counts dict (and therefore the emissions dict).
@@ -148,6 +161,7 @@ The transition parameters are calculated by:
 
 \[ t(v|u) = \frac{\sum_t \sum_i [[y_{t,i}=v \land y_{t,i-1}=u]] }{\sum_{t} \sum_i [[y_{t,i-1}=u]] } \]
 
+
 Also, START and STOP are handled specially.
 \[ t(v|START) = \frac{\sum_t [[y_{t,0}=v]] }{\sum_{t} 1 } \]
 \[ t(STOP|u) = \frac{\sum_t [[y_{t,n-1}=u]] }{\sum_{t} 1 } \]
@@ -155,6 +169,19 @@ Also, START and STOP are handled specially.
 In the program, the calculation of \(t(v|u)\) requires storing the value of \(y_{t,i-1}\). This is stored in \verb|prev_y| variable. By initializing \verb|prev_y| to START, calculation of \(t(v|START)\) is automatically handled.
 
 Transition parameters are stored in a nested dict. \verb|t[y][y_prev]| is the emission probability of (tag \verb|y_prev|)\(\rightarrow\)(tag \verb|y|).
+
+\begin{verbatim}
+ t = {'B-negative': {'B-negative': transition_prob,
+                    'B-neutral': transition_prob,
+                     ...
+                    'START': transition_prob}
+      ...
+     'STOP':       {'B-negative': transition_prob,
+                    'B-neutral': transition_prob,
+                     ...
+                    'START': transition_prob}
+    }
+\end{verbatim}
 
 \subsection{Decoding}
 
@@ -201,6 +228,18 @@ Results from \verb|EvalResult.py|:
 \pagebreak
 
 \section{Part 4 - Max marginal}
+
+\begin{verbatim}
+alpha_table = [{'B-negative': P(Yi='B-negative', X0...Xi-1), ..., 'O': P(Yi='O', X0...Xi-1)},
+              ...
+              ]
+\end{verbatim}
+
+\begin{verbatim}
+beta_table = [{'B-negative': P(Xi...Xn | Yi='B-negative'), ..., 'O': P(Xi...Xn | Yi='O')},
+              ...
+              ]
+\end{verbatim}
 
 Results from \verb|EvalResult.py|:
 \[
