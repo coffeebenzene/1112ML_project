@@ -82,15 +82,19 @@ In part 2, each word is treated independently as being generated from a Multinom
 
 \subsection{Parameter estimation}
 
-The paramters `e(x|y)` are calculated by: (\(t\) indexes each sequence in the data: \((x_t, y_t)\). \(i\) indexes a single (word, tag) pair in the sequence: \((x_{ti}, y_{ti})\). )
-\[ e(a|u) = \frac{\sum_t \sum_i [[y_t=u AND x_t=a]] }{\sum_{t} \sum_i [[Count(y_t=u)]] } \]
+The emission parameters \(e(x|y)\) are calculated by:
+
+(\(t\) indexes each sequence in the data: \((x_t, y_t)\). \(i\) indexes a single (word, tag) pair in the sequence: \((x_{t,i}, y_{t,i})\). )
+\[ e(a|u) = \frac{\sum_t \sum_i [[x_{t,i}=a \land y_{t,i}=u]] }{\sum_{t} \sum_i [[y_{t,i}=u]] } \]
 
 We simply iterate through every sentence and every (word, tag) pair in the sentence and count the 2 sums above.
-The counts are stored in 2 python dicts, the (word, tag) counts are accessed as \texttt{counts\_e[x][y]}. The word counts are accessed as \texttt{counts\_y[y]}.
+The counts are stored in 2 python dicts, the (word, tag) counts are accessed as \verb|counts_e[x][y]|. The word counts are accessed as \verb|counts_y[y]|.
+
+Note that python is 0-indexed. Thus, \(i \in \{0,...,n-1\}\) where n is the number of words in the sentence.
 
 \subsection{Unknown characters}
 
-To handle unknown characters, the code simply loops through the \texttt{counts\_e} dict for every word \texttt{x} and checks if the count is lower than the threshold. If it is, the count is accumulated into a count for \texttt{\#UNK\#}. All the accumulated words are then removed from the counts dict.
+To handle unknown characters, the code simply loops through the \verb|counts_e| dict for every word \texttt{x} and checks if the count is lower than the threshold. If it is, the count is accumulated into a count for \texttt{\#UNK\#}. All the accumulated words are then removed from the counts dict.
 
 \subsection{Decoding}
 
@@ -122,5 +126,29 @@ We used the \texttt{EvalResult.py} script provided to calculate the F-score. Det
 \pagebreak
 
 \section{Part 3 - Viterbi}
+
+Instead of treating each word independently, the input data is first chunked into sentences with \verb|sentence_gen()|. It is a python generator that loops through each line of the input file and uses blank lines to delimit sentences.
+
+\subsection{Parameter estimation}
+
+The emission parameters \(e(x|y)\) are again calculated by:
+
+(\(t\) indexes each sequence in the data: \((x_t, y_t)\). \(i\) indexes a single (word, tag) pair in the sequence: \((x_{t,i}, y_{t,i})\). Also, \(i \in {0,...,n-1}\) where n is number of words in sentence \(t\). )
+\[ e(a|u) = \frac{\sum_t \sum_i [[x_{t,i}=a \land y_{t,i}=u]] }{\sum_{t} \sum_i [[y_{t,i}=u]] } \]
+
+The transition parameters are calculated by:
+
+\[ t(v|u) = \frac{\sum_t \sum_i [[y_{t,i}=v \land y_{t,i-1}=u]] }{\sum_{t} \sum_i [[y_{t,i-1}=u]] } \]
+
+Also, START and STOP are handled specially.
+\[ t(v|START) = \frac{\sum_t [[y_{t,0}=v]] }{\sum_{t} 1 } \]
+\[ t(STOP|u) = \frac{\sum_t [[y_{t,n-1}=u]] }{\sum_{t} 1 } \]
+
+In the program, the calculation of \(t(v|u)\) requires storing the value of \(y_{t,i-1}\). This is stored in \verb|prev_y| variable. By initializing \verb|prev_y| to START, calculation of \(t(v|START)\) is automatically handled.
+
+\subsection{Decoding}
+
+
+
 
 \end{document}
