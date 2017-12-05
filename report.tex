@@ -148,6 +148,13 @@ In the program, the calculation of \(t(v|u)\) requires storing the value of \(y_
 
 \subsection{Decoding}
 
+Decoding is carried out using the Viterbi Algorithm.
+The \texttt{predict} function takes as input the emission and transition parameters and the input file, and outputs the most likely state sequence.
+Then it generates a Viterbi table - a list of \{tag: probabilities\}, each corresponding to an index in the observation sequence.
+
+
+Using the \texttt{EvalResult.py} script provided to calculate the F-score, we obtained the following results:
+
 \[
 \begin{array}{|c|c|c|c|c|}
 \hline \rule{0pt}{1em}
@@ -167,6 +174,30 @@ In the program, the calculation of \(t(v|u)\) requires storing the value of \(y_
 \end{array}
 \]
 
+\pagebreak
+
+\section{Part 4 - Max-marginal}
+
+\subsection{Parameter estimation}
+
+As before, the model parameters are calculated thus:
+
+Emission parameters \(e(x|y)\)
+
+(\(t\) indexes each sequence in the data: \((x_t, y_t)\). \(i\) indexes a single (word, tag) pair in the sequence: \((x_{t,i}, y_{t,i})\). Also, \(i \in {0,...,n-1}\) where n is number of words in sentence \(t\). )
+\[ e(a|u) = \frac{\sum_t \sum_i [[x_{t,i}=a \land y_{t,i}=u]] }{\sum_{t} \sum_i [[y_{t,i}=u]] } \]
+
+Transition parameters
+
+\[ t(v|u) = \frac{\sum_t \sum_i [[y_{t,i}=v \land y_{t,i-1}=u]] }{\sum_{t} \sum_i [[y_{t,i-1}=u]] } \]
+
+START and STOP
+\[ t(v|START) = \frac{\sum_t [[y_{t,0}=v]] }{\sum_{t} 1 } \]
+\[ t(STOP|u) = \frac{\sum_t [[y_{t,n-1}=u]] }{\sum_{t} 1 } \]
+
+In the program, the calculation of \(t(v|u)\) requires storing the value of \(y_{t,i-1}\). This is stored in \verb|prev_y| variable. By initializing \verb|prev_y| to START, calculation of \(t(v|START)\) is automatically handled.
+
+\subsection{Decoding}
 
 
 \end{document}
